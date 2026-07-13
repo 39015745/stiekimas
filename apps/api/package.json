@@ -10,6 +10,7 @@
 		"seed:admin": "tsx src/scripts/seed-admin.ts"
 	},
 	"dependencies": {
+		"@stiekimas/schema": "workspace:*",
 		"bcryptjs": "^3.0.3",
 		"cookie-parser": "^1.4.7",
 		"cors": "^2.8.6",

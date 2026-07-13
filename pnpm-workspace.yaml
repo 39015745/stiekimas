@@ -1,5 +1,7 @@
 packages:
-  - "apps/*"
-  - "packages/*"
+    - "apps/*"
+    - "packages/*"
 allowBuilds:
-  esbuild: true
+    esbuild: true
+catalog:
+    zod: ^4.4.3

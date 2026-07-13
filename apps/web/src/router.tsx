@@ -1,11 +1,12 @@
 import { Navigate, createBrowserRouter } from "react-router-dom";
 
-import { DashboardLayout } from "../layouts/dashboard-layout";
-import { DashboardHomePage } from "../pages/dashboard-home-page";
-import { LoginPage } from "../pages/login-page";
-import { PlaceholderPage } from "../pages/placeholder-page";
-import { GuestRoute } from "../routes/guest-route";
-import { ProtectedRoute } from "../routes/protected-route";
+import { DashboardHomePage } from "./pages/dashboard-home-page";
+import { LoginPage } from "./pages/login-page";
+import { PlaceholderPage } from "./pages/placeholder-page";
+import { GuestRoute } from "./routes/guest-route";
+import { ProtectedRoute } from "./routes/protected-route";
+import { DashboardLayout } from "./components/layouts/dashboard-layout";
+import Employees from "./pages/employees";
 
 export const router = createBrowserRouter([
 	{
@@ -20,9 +21,16 @@ export const router = createBrowserRouter([
 				element: <DashboardLayout />,
 				children: [
 					{ index: true, element: <DashboardHomePage /> },
-					{ path: "employees", element: <PlaceholderPage title="Employees" /> },
-					{ path: "projects", element: <PlaceholderPage title="Projects" /> },
 					{ path: "work-sessions", element: <PlaceholderPage title="Work sessions" /> },
+
+					// Only Admins can access these routes
+					{
+						element: <ProtectedRoute allowedRoles={["admin"]} />,
+						children: [
+							{ path: "employees", element: <Employees /> },
+							{ path: "projects", element: <PlaceholderPage title="Projects" /> },
+						],
+					},
 				],
 			},
 		],
