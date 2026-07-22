@@ -7,10 +7,10 @@ import stiekimasLogo from "../../assets/stiekimas-logo.webp";
 import { authQueryOptions, logout } from "../../features/auth/auth-api";
 
 const navigation = [
-	{ label: "Apžvalga", to: "/dashboard", end: true, icon: LayoutDashboard },
-	{ label: "Darbuotojai", to: "/dashboard/employees", icon: Users },
-	{ label: "Projektai", to: "/dashboard/projects", icon: Briefcase },
-	{ label: "Bendras tabelis", to: "/dashboard/work-sessions", icon: CalendarClock },
+	{ label: "Apžvalga", to: "/", end: true, icon: LayoutDashboard },
+	{ label: "Darbuotojai", to: "/employees", icon: Users },
+	{ label: "Projektai", to: "/projects", icon: Briefcase },
+	{ label: "Bendras tabelis", to: "/work-sessions", icon: CalendarClock },
 ];
 
 export function DashboardLayout() {
@@ -27,6 +27,7 @@ export function DashboardLayout() {
 			navigate("/login", { replace: true });
 		},
 	});
+	console.log("1111", authQuery.data);
 
 	const role = authQuery.data?.role === "admin" ? "administratorius" : "darbuotojas";
 
@@ -93,7 +94,7 @@ export function DashboardLayout() {
 					</button>
 					<div className="flex items-center gap-4 ml-auto text-sm text-foreground">
 						<p>
-							Sveiki, <span className="font-medium text-primary-400">{authQuery.data?.name}</span>
+							Sveiki, <span className="font-medium text-primary-400">{authQuery.data?.username}</span>
 						</p>
 					</div>
 				</header>

@@ -7,6 +7,7 @@ import { GuestRoute } from "./routes/guest-route";
 import { ProtectedRoute } from "./routes/protected-route";
 import { DashboardLayout } from "./components/layouts/dashboard-layout";
 import Employees from "./pages/employees";
+import EmployeeDetails from "./pages/employee";
 
 export const router = createBrowserRouter([
 	{
@@ -14,17 +15,19 @@ export const router = createBrowserRouter([
 		children: [{ path: "/login", element: <LoginPage /> }],
 	},
 	{
+		// User protected routes
 		element: <ProtectedRoute />,
 		children: [
 			{
-				path: "/dashboard",
+				path: "/",
 				element: <DashboardLayout />,
 				children: [
 					{ index: true, element: <DashboardHomePage /> },
 					{ path: "work-sessions", element: <PlaceholderPage title="Work sessions" /> },
+					{ path: "employees/:id", element: <EmployeeDetails /> },
 
-					// Only Admins can access these routes
 					{
+						// Admin protected routes
 						element: <ProtectedRoute allowedRoles={["admin"]} />,
 						children: [
 							{ path: "employees", element: <Employees /> },
@@ -35,6 +38,5 @@ export const router = createBrowserRouter([
 			},
 		],
 	},
-	{ path: "/", element: <Navigate to="/dashboard" replace /> },
-	{ path: "*", element: <Navigate to="/dashboard" replace /> },
+	{ path: "*", element: <Navigate to="/" replace /> },
 ]);

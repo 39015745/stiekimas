@@ -17,6 +17,8 @@ const adminSchema = z.object({
 	ADMIN_PASSWORD: z.string().min(8).max(50),
 });
 
+const SYSTEM_USER_ID = new mongoose.Types.ObjectId("000000000000000000000000");
+
 async function seedAdmin(): Promise<void> {
 	const admin = adminSchema.parse(process.env);
 	await mongoose.connect(env.MONGODB_URI);
@@ -24,11 +26,15 @@ async function seedAdmin(): Promise<void> {
 	const passwordHash = await bcrypt.hash(admin.ADMIN_PASSWORD, 12);
 
 	await User.findOneAndUpdate(
-		{ name: admin.ADMIN_NAME },
+		{ username: admin.ADMIN_NAME },
 		{
 			$set: {
 				passwordHash,
 				role: "admin",
+				updatedBy: SYSTEM_USER_ID,
+			},
+			$setOnInsert: {
+				createdBy: SYSTEM_USER_ID,
 			},
 		},
 		{

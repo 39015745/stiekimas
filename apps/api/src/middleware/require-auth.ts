@@ -13,7 +13,7 @@ export async function requireAuth(request: Request, response: Response, next: Ne
 		}
 
 		const { sub } = verifyAuthToken(token);
-		const user = await User.findById(sub).select("name role").lean();
+		const user = await User.findById(sub).select("username role employeeId").lean();
 
 		if (!user) {
 			response.status(401).json({ message: "Authentication required" });
@@ -22,7 +22,8 @@ export async function requireAuth(request: Request, response: Response, next: Ne
 
 		request.user = {
 			id: user._id.toString(),
-			name: user.name,
+			employeeId: user.employeeId ? user.employeeId.toString() : undefined,
+			username: user.username,
 			role: user.role,
 		};
 

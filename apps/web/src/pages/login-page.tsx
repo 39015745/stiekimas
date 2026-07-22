@@ -1,16 +1,12 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { z } from "zod";
+
 import stiekimasLogo from "../assets/stiekimas-logo.webp";
 
+import { loginSchema } from "@stiekimas/schema";
 import { authQueryOptions, login } from "../features/auth/auth-api";
 import { ApiError } from "../lib/api";
-
-const loginSchema = z.object({
-	name: z.string().trim().min(1, "Enter your name"),
-	password: z.string().min(1, "Enter your password"),
-});
 
 type LocationState = {
 	from?: string;
@@ -20,7 +16,7 @@ export function LoginPage() {
 	const navigate = useNavigate();
 	const location = useLocation();
 	const queryClient = useQueryClient();
-	const [name, setName] = useState("");
+	const [username, setUsername] = useState("");
 	const [password, setPassword] = useState("");
 	const [validationError, setValidationError] = useState<string | null>(null);
 
@@ -37,17 +33,17 @@ export function LoginPage() {
 		event.preventDefault();
 		setValidationError(null);
 
-		const parsed = loginSchema.safeParse({ name, password });
+		const parsed = loginSchema.safeParse({ username, password });
 
 		if (!parsed.success) {
-			setValidationError(parsed.error.issues[0]?.message ?? "Check your details");
+			setValidationError(parsed.error.issues[0]?.message ?? "Patikrinkite savo duomenis");
 			return;
 		}
 
 		loginMutation.mutate(parsed.data);
 	}
 
-	const serverError = loginMutation.error instanceof ApiError ? loginMutation.error.message : loginMutation.isError ? "Unable to sign in" : null;
+	const serverError = loginMutation.error instanceof ApiError ? loginMutation.error.message : loginMutation.isError ? "Nepavyko prisijungti" : null;
 
 	return (
 		<main className="flex items-center justify-center min-h-screen w-full bg-slate-100">
@@ -62,8 +58,8 @@ export function LoginPage() {
 							autoFocus
 							className="h-11 w-full rounded-lg border border-slate-300 px-3 text-slate-950 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-950/10"
 							disabled={loginMutation.isPending}
-							onChange={(event) => setName(event.target.value)}
-							value={name}
+							onChange={(event) => setUsername(event.target.value)}
+							value={username}
 						/>
 					</label>
 
