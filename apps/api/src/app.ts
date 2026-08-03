@@ -7,6 +7,7 @@ import { env } from "./config/env.js";
 import { authRouter } from "./routes/auth.routes.js";
 import { requireAuth } from "./middleware/require-auth.js";
 import { employeeRouter } from "./routes/employee.routes.js";
+import { employeeLoginRouter } from "./routes/employee-login.routes.js";
 
 export const app = express();
 
@@ -25,7 +26,9 @@ app.get("/api/health", (_request, response) => {
 });
 
 app.use("/api/auth", authRouter);
+
 app.use("/api/employees", requireAuth, employeeRouter);
+app.use("/api/employees", requireAuth, employeeLoginRouter);
 
 app.use((_request, response) => {
 	response.status(404).json({ message: "Route not found" });

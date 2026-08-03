@@ -1,69 +1,92 @@
 import { Router } from "express";
-import bcrypt from "bcryptjs";
-import mongoose from "mongoose";
+import mongoose, { type QueryFilter } from "mongoose";
 
 import type { Request, Response } from "express";
-import { Employee } from "../models/employee.model.js";
+import { Employee, type EmployeeDb } from "../models/employee.model.js";
+import type { EmployeeDetails, EmployeeListItem, EmployeeListResponse } from "@stiekimas/schema";
 
 import { requireAdmin } from "../middleware/require-admin.js";
-import { createEmployeeSchema } from "@stiekimas/schema";
+import { createEmployeeSchema, employeeListQuerySchema, updateEmployeeSchema } from "@stiekimas/schema";
 import { User } from "../models/user.model.js";
+import { isMongoDuplicateKeyError } from "../lib/mongoose-errors.js";
 
 export const employeeRouter = Router();
 
-type DuplicateKeyError = {
-	code: number;
-	keyPattern?: Record<string, number>;
+type EmployeeUpdateData = Pick<EmployeeDb, "firstName" | "lastName" | "email" | "address" | "personalCode" | "dateOfBirth" | "bankAccountNumber" | "updatedBy"> &
+	Partial<Pick<EmployeeDb, "position" | "basicSalary">>;
+
+type ErrorResponse = {
+	message: string;
+	errors?: {
+		field: string;
+		message: string;
+	}[];
 };
 
-function isDuplicateKeyError(error: unknown): error is DuplicateKeyError {
-	return typeof error === "object" && error !== null && "code" in error && (error as { code?: unknown }).code === 11000;
+function escapeRegExp(value: string): string {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // GET /api/employees
-employeeRouter.get("/", requireAdmin, async (req: Request, res: Response) => {
+employeeRouter.get("/", requireAdmin, async (req: Request, res: Response<EmployeeListResponse | ErrorResponse>) => {
+	const validationResult = employeeListQuerySchema.safeParse(req.query);
+
+	if (!validationResult.success) {
+		return res.status(400).json({
+			message: "Neteisingi lentelės parametrai",
+			errors: validationResult.error.issues.map((issue) => ({
+				field: issue.path.join("."),
+				message: issue.message,
+			})),
+		});
+	}
+
+	const { page, pageSize, sortBy, sortOrder, filters } = validationResult.data;
+
+	const sortDirection: 1 | -1 = sortOrder === "desc" ? -1 : 1;
+
+	const query: QueryFilter<EmployeeDb> = {};
+
+	for (const { column, value } of filters) {
+		const regex = new RegExp(escapeRegExp(value), "i");
+
+		switch (column) {
+			case "firstName":
+				query.firstName = regex;
+				break;
+			case "lastName":
+				query.lastName = regex;
+				break;
+			case "email":
+				query.email = regex;
+				break;
+			case "position":
+				query.position = regex;
+				break;
+		}
+	}
+
 	try {
-		const page = parseInt(req.query.page as string, 10) || 1;
-		const pageSize = parseInt(req.query.pageSize as string, 10) || 10;
-		const sortBy = (req.query.sortBy as string) || "lastName";
-		const sortOrder = req.query.sortOrder === "desc" ? -1 : 1;
-
-		let filters: { column: string; value: string }[] = [];
-		if (req.query.filters) {
-			try {
-				filters = JSON.parse(req.query.filters as string);
-			} catch (e) {
-				res.status(400).json({ message: "Invalid filters format" });
-				return;
-			}
-		}
-
-		const query: Record<string, any> = {};
-		for (const { column, value } of filters) {
-			if (value && column !== "username") {
-				query[column] = { $regex: value, $options: "i" };
-			}
-		}
-
 		const [items, totalCount] = await Promise.all([
 			Employee.find(query)
-				.sort({ [sortBy]: sortOrder })
+				.sort({ [sortBy]: sortDirection })
 				.skip((page - 1) * pageSize)
 				.limit(pageSize)
 				.lean(),
+
 			Employee.countDocuments(query),
 		]);
 
-		const formattedItems = items.map((doc) => ({
-			id: doc._id.toString(),
-			firstName: doc.firstName,
-			lastName: doc.lastName,
-			email: doc.email,
-			position: doc.position,
+		const employeeList: EmployeeListItem[] = items.map((employee) => ({
+			id: employee._id.toString(),
+			firstName: employee.firstName,
+			lastName: employee.lastName,
+			email: employee.email,
+			position: employee.position,
 		}));
 
-		res.json({
-			items: formattedItems,
+		return res.json({
+			items: employeeList,
 			totalCount,
 			page,
 			pageSize,
@@ -71,7 +94,10 @@ employeeRouter.get("/", requireAdmin, async (req: Request, res: Response) => {
 		});
 	} catch (error) {
 		console.error("Failed to fetch employees:", error);
-		res.status(500).json({ message: "Internal server error" });
+
+		return res.status(500).json({
+			message: "Vidinė serverio klaida",
+		});
 	}
 });
 
@@ -82,69 +108,51 @@ employeeRouter.get("/:id", async (req: Request, res: Response) => {
 		const currentUser = req.user;
 
 		if (typeof requestedId !== "string" || !mongoose.Types.ObjectId.isValid(requestedId)) {
-			res.status(400).json({ message: "Neteisingas ID formatas" });
-			return;
+			return res.status(400).json({
+				message: "Neteisingas ID formatas",
+			});
 		}
 
-		// Authorization: Allow if admin, or if the employee is requesting their own data
 		if (currentUser.role !== "admin" && currentUser.employeeId !== requestedId) {
-			res.status(403).json({ message: "Prieiga draudžiama" });
-			return;
+			return res.status(403).json({
+				message: "Prieiga draudžiama",
+			});
 		}
 
-		const result = await Employee.aggregate<EmployeeResponse>([
-			{
-				$match: {
-					_id: new mongoose.Types.ObjectId(requestedId),
-				},
-			},
-			{
-				$lookup: {
-					from: "users",
-					localField: "_id",
-					foreignField: "employeeId",
-					as: "user",
-				},
-			},
-			{
-				$unwind: {
-					path: "$user",
-					preserveNullAndEmptyArrays: true,
-				},
-			},
-			{
-				$project: {
-					_id: 0,
-
-					id: { $toString: "$_id" },
-
-					firstName: 1,
-					lastName: 1,
-					email: 1,
-					address: 1,
-					position: 1,
-					personalCode: 1,
-					dateOfBirth: 1,
-					bankAccountNumber: 1,
-					basicSalary: 1,
-					hasLogin: 1,
-
-					username: { $ifNull: ["$user.username", ""] },
-					role: { $ifNull: ["$user.role", "employee"] },
-				},
-			},
+		const [employee, user] = await Promise.all([
+			Employee.findById(requestedId).select("+personalCode +bankAccountNumber +basicSalary").lean(),
+			User.findOne({ employeeId: requestedId }).select("username role").lean(),
 		]);
 
-		const employeeData = result[0];
-
-		if (!employeeData) {
+		if (!employee) {
 			return res.status(404).json({
 				message: "Darbuotojas nerastas",
 			});
 		}
+
+		const response = {
+			id: employee._id.toString(),
+			firstName: employee.firstName,
+			lastName: employee.lastName,
+			email: employee.email,
+			address: employee.address,
+			position: employee.position,
+			personalCode: employee.personalCode,
+			dateOfBirth: employee.dateOfBirth,
+			bankAccountNumber: employee.bankAccountNumber,
+			basicSalary: employee.basicSalary,
+			login: user ? { username: user.username, role: user.role } : null,
+			createdAt: employee.createdAt.toISOString(),
+			updatedAt: employee.updatedAt.toISOString(),
+		} satisfies EmployeeDetails;
+
+		return res.json(response);
 	} catch (error) {
 		console.error("Failed to fetch employee:", error);
-		res.status(500).json({ message: "Vidinė serverio klaida" });
+
+		return res.status(500).json({
+			message: "Vidinė serverio klaida",
+		});
 	}
 });
 
@@ -153,78 +161,38 @@ employeeRouter.post("/", requireAdmin, async (req: Request, res: Response) => {
 	const validationResult = await createEmployeeSchema.safeParseAsync(req.body);
 
 	if (!validationResult.success) {
-		res.status(400).json({
+		return res.status(400).json({
 			message: "Validacijos klaida",
 			errors: validationResult.error.issues.map((issue) => ({
 				field: issue.path.join("."),
 				message: issue.message,
 			})),
 		});
-
-		return;
 	}
-
-	const { firstName, lastName, email, address, position, personalCode, dateOfBirth, bankAccountNumber, basicSalary, manageLogin, password, username, role } = validationResult.data;
 
 	const currentUserId = req.user.id;
 
 	try {
-		await mongoose.connection.transaction(async (session) => {
-			const employee = new Employee({
-				firstName,
-				lastName,
-				email,
-				address,
-				position,
-				personalCode,
-				dateOfBirth,
-				bankAccountNumber,
-				basicSalary,
-				hasLogin: manageLogin,
-				createdBy: currentUserId,
-				updatedBy: currentUserId,
-			});
-
-			await employee.save({ session });
-
-			let user = null;
-
-			// Only create the login if the frontend requested it
-			if (manageLogin) {
-				const passwordHash = await bcrypt.hash(password, 12);
-
-				user = new User({
-					username,
-					passwordHash,
-					role,
-					employeeId: employee._id,
-					createdBy: currentUserId,
-					updatedBy: currentUserId,
-				});
-
-				await user.save({ session });
-			}
-
-			return { employee, user };
+		const employee = await Employee.create({
+			...validationResult.data,
+			createdBy: currentUserId,
+			updatedBy: currentUserId,
 		});
 
-		return res.sendStatus(201);
+		return res.status(201).json({
+			id: employee._id.toString(),
+		});
 	} catch (error) {
-		if (isDuplicateKeyError(error)) {
-			const fields = Object.keys(error.keyPattern ?? {});
-			console.log(error);
-			res.status(409).json({
-				message: fields.includes("username") ? "Toks vartotojo vardas jau naudojamas" : "Darbuotojas su tokiu el. paštu jau egzistuoja",
-				fields,
+		if (isMongoDuplicateKeyError(error)) {
+			return res.status(409).json({
+				message: "Darbuotojas su tokiu el. paštu jau egzistuoja",
 			});
-
-			return;
 		}
 
 		console.error("Failed to create employee:", error);
 
-		res.status(500).json({
-			message: "Internal server error",
+		return res.status(500).json({
+			message: "Vidinė serverio klaida",
 		});
 	}
 });
@@ -235,108 +203,69 @@ employeeRouter.put("/:id", async (req: Request, res: Response) => {
 	const currentUser = req.user;
 
 	if (typeof requestedId !== "string" || !mongoose.Types.ObjectId.isValid(requestedId)) {
-		res.status(400).json({ message: "Neteisingas ID formatas" });
-		return;
+		return res.status(400).json({
+			message: "Neteisingas ID formatas",
+		});
 	}
 
-	// Authorization: Allow if admin, or if the employee is updating their own data
 	if (currentUser.role !== "admin" && currentUser.employeeId !== requestedId) {
-		res.status(403).json({ message: "Prieiga draudžiama" });
-		return;
+		return res.status(403).json({
+			message: "Prieiga draudžiama",
+		});
 	}
 
-	// Note: Assuming you have an `updateEmployeeSchema` that makes fields optional.
-	// If you are using the same schema, ensure it handles partial updates appropriately.
-	const validationResult = await createEmployeeSchema.safeParseAsync(req.body);
+	const validationResult = await updateEmployeeSchema.safeParseAsync(req.body);
 
 	if (!validationResult.success) {
-		res.status(400).json({
+		return res.status(400).json({
 			message: "Validacijos klaida",
 			errors: validationResult.error.issues.map((issue) => ({
 				field: issue.path.join("."),
 				message: issue.message,
 			})),
 		});
-		return;
 	}
 
 	const data = validationResult.data;
 
+	const employeeDataToUpdate: EmployeeUpdateData = {
+		firstName: data.firstName,
+		lastName: data.lastName,
+		email: data.email,
+		address: data.address,
+		personalCode: data.personalCode,
+		dateOfBirth: data.dateOfBirth,
+		bankAccountNumber: data.bankAccountNumber,
+		updatedBy: new mongoose.Types.ObjectId(currentUser.id),
+	};
+
+	if (currentUser.role === "admin") {
+		employeeDataToUpdate.position = data.position;
+		employeeDataToUpdate.basicSalary = data.basicSalary;
+	}
+
 	try {
-		await mongoose.connection.transaction(async (session) => {
-			const employeeDataToUpdate: any = {
-				firstName: data.firstName,
-				lastName: data.lastName,
-				email: data.email,
-				address: data.address,
-				personalCode: data.personalCode,
-				dateOfBirth: data.dateOfBirth,
-				bankAccountNumber: data.bankAccountNumber,
-				updatedBy: currentUser.id,
-			};
+		const result = await Employee.updateOne({ _id: requestedId }, { $set: employeeDataToUpdate }, { runValidators: true });
 
-			// Only allow admins to update position, salary, and login permissions
-			if (currentUser.role === "admin") {
-				employeeDataToUpdate.position = data.position;
-				employeeDataToUpdate.basicSalary = data.basicSalary;
-				if (data.manageLogin) {
-					employeeDataToUpdate.hasLogin = true;
-				}
-			}
-
-			const updatedEmployee = await Employee.findByIdAndUpdate(requestedId, { $set: employeeDataToUpdate }, { new: true, session });
-
-			if (!updatedEmployee) {
-				throw new Error("EMPLOYEE_NOT_FOUND");
-			}
-
-			let updatedUser = null;
-
-			// Only admins can manage login details
-			if (currentUser.role === "admin") {
-				if (data.manageLogin) {
-					const userDataToUpdate: any = {
-						username: data.username,
-						role: data.role,
-						updatedBy: currentUser.id,
-					};
-
-					if (data.password) {
-						userDataToUpdate.passwordHash = await bcrypt.hash(data.password, 12);
-					}
-
-					updatedUser = await User.findOneAndUpdate(
-						{ employeeId: requestedId },
-						{
-							$set: userDataToUpdate,
-							$setOnInsert: { createdBy: currentUser.id },
-						},
-						{ new: true, upsert: true, session },
-					);
-				}
-			}
-
-			return { employee: updatedEmployee, user: updatedUser };
-		});
+		if (result.matchedCount === 0) {
+			return res.status(404).json({
+				message: "Darbuotojas nerastas",
+			});
+		}
 
 		return res.sendStatus(200);
 	} catch (error) {
-		if (error instanceof Error && error.message === "EMPLOYEE_NOT_FOUND") {
-			res.status(404).json({ message: "Darbuotojas nerastas" });
-			return;
-		}
-
-		if (isDuplicateKeyError(error)) {
-			const fields = Object.keys(error.keyPattern ?? {});
-			res.status(409).json({
-				message: fields.includes("username") ? "Toks vartotojo vardas jau naudojamas" : "Darbuotojas su tokiu el. paštu jau egzistuoja",
-				fields,
+		if (isMongoDuplicateKeyError(error)) {
+			return res.status(409).json({
+				message: "Darbuotojas su tokiu el. paštu jau egzistuoja",
 			});
-			return;
 		}
 
 		console.error("Failed to update employee:", error);
-		res.status(500).json({ message: "Vidinė serverio klaida" });
+
+		return res.status(500).json({
+			message: "Vidinė serverio klaida",
+		});
 	}
 });
 

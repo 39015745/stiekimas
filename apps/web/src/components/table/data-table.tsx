@@ -100,8 +100,6 @@ export function DataTable<T>({ columns, filterOptions = [], getRowId, queryKey, 
 		placeholderData: keepPreviousData,
 	});
 
-	console.log("zzzzz", query.data);
-
 	const pageCount = query.data?.pageCount ?? 0;
 	const paginationItems = getPaginationItems(tableState.page, pageCount);
 
@@ -335,7 +333,7 @@ export function DataTable<T>({ columns, filterOptions = [], getRowId, queryKey, 
 						onClick={() =>
 							setTableState((current) => ({
 								...current,
-								page: current.page - 1,
+								page: Math.max(1, current.page - 1),
 							}))
 						}
 						disabled={tableState.page <= 1}
@@ -373,7 +371,7 @@ export function DataTable<T>({ columns, filterOptions = [], getRowId, queryKey, 
 						onClick={() =>
 							setTableState((current) => ({
 								...current,
-								page: current.page + 1,
+								page: Math.min(pageCount, current.page + 1),
 							}))
 						}
 						disabled={pageCount === 0 || tableState.page >= pageCount}

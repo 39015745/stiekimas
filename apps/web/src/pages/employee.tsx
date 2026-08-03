@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { Breadcrumbs } from "../components/ui/breadcrumbs";
 
-import type { Employee } from "@stiekimas/schema";
+import type { EmployeeDetails } from "@stiekimas/schema";
 
 import { apiRequest } from "../lib/api";
 import { Spinner } from "../components/ui/loading-animations";
@@ -24,7 +24,7 @@ export default function EmployeeDetails() {
 		isError,
 	} = useQuery({
 		queryKey: ["employees", id],
-		queryFn: ({ signal }) => apiRequest<Employee>(`/api/employees/${id}`, { signal }),
+		queryFn: ({ signal }) => apiRequest<EmployeeDetails>(`/api/employees/${id}`, { signal }),
 		enabled: Boolean(id),
 	});
 

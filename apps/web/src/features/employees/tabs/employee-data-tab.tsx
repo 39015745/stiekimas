@@ -1,17 +1,13 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
 
-import type { Employee } from "@stiekimas/schema";
+import type { EmployeeDetails } from "@stiekimas/schema";
 
-import { POSITION_LABELS } from "../constants";
+import { POSITION_LABELS } from "../employee.constants";
 import Drawer from "../../../components/layouts/drawer";
 import { EmployeeForm } from "../employee-form";
 
-type EmployeeDataTabProps = {
-	employee: Employee;
-};
-
-export function EmployeeDataTab({ employee }: EmployeeDataTabProps) {
+export function EmployeeDataTab({ employee }: { employee: EmployeeDetails }) {
 	const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
 	return (

@@ -1,6 +1,6 @@
 import { apiRequest } from "../../lib/api";
 import { DataTable, type PaginatedResponse, type TableColumn, type TableState } from "../../components/table/data-table";
-import { POSITION_LABELS } from "./constants";
+import { POSITION_LABELS } from "./employee.constants";
 
 export type EmployeeListItem = {
 	id: string;

@@ -11,8 +11,6 @@ export interface UserFields {
 	updatedBy: Types.ObjectId;
 }
 
-export type UserDocument = HydratedDocument<UserFields>;
-
 const userSchema = new mongoose.Schema<UserFields>(
 	{
 		username: {
@@ -55,5 +53,8 @@ userSchema.index(
 		},
 	},
 );
+
+export type UserDb = mongoose.InferSchemaType<typeof userSchema>;
+export type UserDocument = mongoose.HydratedDocument<UserDb>;
 
 export const User = mongoose.model<UserFields>("User", userSchema);

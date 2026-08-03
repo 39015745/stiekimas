@@ -1,12 +1,12 @@
 const API_URL = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
 
 export class ApiError extends Error {
-	constructor(
-		message: string,
-		public readonly status: number,
-	) {
+	public readonly status: number;
+
+	constructor(message: string, status: number) {
 		super(message);
 		this.name = "ApiError";
+		this.status = status;
 	}
 }
 
@@ -29,7 +29,8 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
 
 	if (!response.ok) {
 		const body = (await response.json().catch(() => ({}))) as ErrorResponse;
-		throw new ApiError(body.message ?? "Request failed", response.status);
+
+		throw new ApiError(body.message ?? "Užklausos įvykdyti nepavyko", response.status);
 	}
 
 	if (response.status === 204) {

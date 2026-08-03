@@ -4,7 +4,7 @@ import type { SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { employeeFormSchema, type Employee, type EmployeeFormInput, type EmployeeFormOutput } from "@stiekimas/schema";
+import { employeeFormSchema, type EmployeeDetails, type EmployeeFormInput, type EmployeeFormOutput } from "@stiekimas/schema";
 
 import { Input } from "../../components/inputs/input";
 import { Select } from "../../components/inputs/select";
@@ -12,11 +12,11 @@ import { DatePicker } from "../../components/inputs/date-picker";
 import { CollapsibleFieldset } from "../../components/layouts/collapsible-fieldset";
 import { ActionOverlay, type ActionOverlayState } from "../../components/layouts/action-overlay";
 import { apiRequest, getErrorMessage } from "../../lib/api";
-import { POSITION_OPTIONS, ROLE_OPTIONS } from "./constants";
+import { POSITION_OPTIONS } from "./employee.constants";
 
 type EmployeeFormProps = {
 	onClose: () => void;
-	initialData?: Employee | null;
+	initialData?: EmployeeDetails | null;
 };
 
 const defaultValues = {
@@ -29,14 +29,9 @@ const defaultValues = {
 	dateOfBirth: "",
 	bankAccountNumber: "",
 	basicSalary: 0,
-	hasLogin: false,
-	manageLogin: false,
-	username: "",
-	password: "",
-	role: "employee",
 } satisfies EmployeeFormInput;
 
-function getEmployeeFormValues(employee?: Employee | null): EmployeeFormInput {
+function getEmployeeFormValues(employee?: EmployeeDetails | null): EmployeeFormInput {
 	if (!employee) {
 		return defaultValues;
 	}
@@ -51,11 +46,6 @@ function getEmployeeFormValues(employee?: Employee | null): EmployeeFormInput {
 		dateOfBirth: employee.dateOfBirth,
 		bankAccountNumber: employee.bankAccountNumber,
 		basicSalary: employee.basicSalary,
-		hasLogin: employee.hasLogin,
-		manageLogin: false,
-		username: employee.username ?? "",
-		password: "",
-		role: employee.role,
 	};
 }
 
@@ -64,7 +54,6 @@ export function EmployeeForm({ onClose, initialData }: EmployeeFormProps) {
 		register,
 		control,
 		handleSubmit,
-		watch,
 		reset,
 		formState: { errors },
 	} = useForm<EmployeeFormInput, unknown, EmployeeFormOutput>({
@@ -74,8 +63,6 @@ export function EmployeeForm({ onClose, initialData }: EmployeeFormProps) {
 	});
 
 	const queryClient = useQueryClient();
-	const manageLogin = watch("manageLogin");
-	const hasExistingLogin = Boolean(initialData?.hasLogin);
 
 	const [overlayState, setOverlayState] = useState<ActionOverlayState>({ type: "closed" });
 
@@ -175,7 +162,7 @@ export function EmployeeForm({ onClose, initialData }: EmployeeFormProps) {
 				</CollapsibleFieldset>
 
 				{/* Login information Section */}
-				<CollapsibleFieldset title="Prisijungimo informacija">
+				{/* <CollapsibleFieldset title="Prisijungimo informacija">
 					<div className="space-y-4 p-4">
 						<div className="flex items-center gap-2">
 							<input id="manageLogin" type="checkbox" {...register("manageLogin")} className="h-4 w-4" />
@@ -198,7 +185,7 @@ export function EmployeeForm({ onClose, initialData }: EmployeeFormProps) {
 							</div>
 						)}
 					</div>
-				</CollapsibleFieldset>
+				</CollapsibleFieldset> */}
 
 				<div className="mt-6 flex justify-end gap-3">
 					<button
