@@ -6,7 +6,7 @@ import { Employee, type EmployeeDb } from "../models/employee.model.js";
 import type { EmployeeDetails, EmployeeListItem, EmployeeListResponse } from "@stiekimas/schema";
 
 import { requireAdmin } from "../middleware/require-admin.js";
-import { createEmployeeSchema, employeeListQuerySchema, updateEmployeeSchema } from "@stiekimas/schema";
+import { employeeFormSchema, employeeListQuerySchema } from "@stiekimas/schema";
 import { User } from "../models/user.model.js";
 import { isMongoDuplicateKeyError } from "../lib/mongoose-errors.js";
 
@@ -69,7 +69,11 @@ employeeRouter.get("/", requireAdmin, async (req: Request, res: Response<Employe
 	try {
 		const [items, totalCount] = await Promise.all([
 			Employee.find(query)
-				.sort({ [sortBy]: sortDirection })
+				.select("_id firstName lastName email position")
+				.sort({
+					[sortBy]: sortDirection,
+					_id: sortDirection,
+				})
 				.skip((page - 1) * pageSize)
 				.limit(pageSize)
 				.lean(),
@@ -102,7 +106,7 @@ employeeRouter.get("/", requireAdmin, async (req: Request, res: Response<Employe
 });
 
 // GET /api/employees/:id | Get employee details |
-employeeRouter.get("/:id", async (req: Request, res: Response) => {
+employeeRouter.get("/:id", async (req: Request, res: Response<EmployeeDetails | ErrorResponse>) => {
 	try {
 		const requestedId = req.params.id;
 		const currentUser = req.user;
@@ -158,7 +162,7 @@ employeeRouter.get("/:id", async (req: Request, res: Response) => {
 
 // POST /api/employees | create employee |
 employeeRouter.post("/", requireAdmin, async (req: Request, res: Response) => {
-	const validationResult = await createEmployeeSchema.safeParseAsync(req.body);
+	const validationResult = await employeeFormSchema.safeParseAsync(req.body);
 
 	if (!validationResult.success) {
 		return res.status(400).json({
@@ -184,8 +188,10 @@ employeeRouter.post("/", requireAdmin, async (req: Request, res: Response) => {
 		});
 	} catch (error) {
 		if (isMongoDuplicateKeyError(error)) {
+			const field = Object.keys(error.keyPattern ?? {})[0];
+
 			return res.status(409).json({
-				message: "Darbuotojas su tokiu el. paštu jau egzistuoja",
+				message: field === "personalCode" ? "Darbuotojas su tokiu asmens kodu jau egzistuoja" : "Darbuotojas su tokiu el. paštu jau egzistuoja",
 			});
 		}
 
@@ -214,7 +220,7 @@ employeeRouter.put("/:id", async (req: Request, res: Response) => {
 		});
 	}
 
-	const validationResult = await updateEmployeeSchema.safeParseAsync(req.body);
+	const validationResult = await employeeFormSchema.safeParseAsync(req.body);
 
 	if (!validationResult.success) {
 		return res.status(400).json({
@@ -256,8 +262,10 @@ employeeRouter.put("/:id", async (req: Request, res: Response) => {
 		return res.sendStatus(200);
 	} catch (error) {
 		if (isMongoDuplicateKeyError(error)) {
+			const field = Object.keys(error.keyPattern ?? {})[0];
+
 			return res.status(409).json({
-				message: "Darbuotojas su tokiu el. paštu jau egzistuoja",
+				message: field === "personalCode" ? "Darbuotojas su tokiu asmens kodu jau egzistuoja" : "Darbuotojas su tokiu el. paštu jau egzistuoja",
 			});
 		}
 
@@ -270,6 +278,6 @@ employeeRouter.put("/:id", async (req: Request, res: Response) => {
 });
 
 // DELETE /api/employees/:id
-employeeRouter.delete("/:id", (req, res) => {
+employeeRouter.delete("/:id", requireAdmin, async (req, res) => {
 	res.json({ message: `Delete employee ${req.params.id}` });
 });

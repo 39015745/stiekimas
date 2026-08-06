@@ -26,7 +26,7 @@ const employeeSchema = new mongoose.Schema(
 		},
 		position: {
 			type: String,
-			enum: ["welder", "assembler"],
+			enum: ["Montuotojas", "Suvirintojas"],
 			required: true,
 		},
 		personalCode: {

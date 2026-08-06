@@ -3,5 +3,8 @@ packages:
     - "packages/*"
 allowBuilds:
     esbuild: true
+    sharp: true
 catalog:
     zod: ^4.4.3
+
+minimumReleaseAge: 2880

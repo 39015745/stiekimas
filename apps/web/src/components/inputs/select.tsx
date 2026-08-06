@@ -18,7 +18,6 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(({ label, optio
 				<select
 					id={selectId}
 					ref={ref}
-					// Required for floating label peer logic to know when it's "empty" vs filled
 					required
 					defaultValue=""
 					className={`
@@ -30,7 +29,6 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(({ label, optio
                         `}
 					{...props}
 				>
-					{/* Hidden default option allows the floating label to behave correctly */}
 					<option value="" disabled hidden></option>
 					{options.map((option) => (
 						<option key={option.value} value={option.value}>

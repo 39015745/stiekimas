@@ -124,30 +124,34 @@ employeeLoginRouter.put("/:employeeId/login", requireAdmin, async (req, res) => 
 		const { username, password, role } = validationResult.data;
 
 		const update: {
-			username: string;
-			role: typeof role;
-			updatedBy: string;
-			passwordHash?: string;
+			$set: {
+				username: string;
+				role: typeof role;
+				updatedBy: string;
+				passwordHash?: string;
+			};
+			$inc?: {
+				authVersion: number;
+			};
 		} = {
-			username,
-			role,
-			updatedBy: req.user.id,
+			$set: {
+				username,
+				role,
+				updatedBy: req.user.id,
+			},
 		};
 
 		if (password) {
-			update.passwordHash = await bcrypt.hash(password, 12);
+			update.$set.passwordHash = await bcrypt.hash(password, 12);
+			update.$inc = {
+				authVersion: 1,
+			};
 		}
 
-		const user = await User.findOneAndUpdate(
-			{ employeeId },
-			{
-				$set: update,
-			},
-			{
-				new: true,
-				runValidators: true,
-			},
-		);
+		const user = await User.findOneAndUpdate({ employeeId }, update, {
+			new: true,
+			runValidators: true,
+		});
 
 		if (!user) {
 			return res.status(404).json({

@@ -6,6 +6,7 @@ export interface UserFields {
 	username: string;
 	passwordHash: string;
 	role: UserRole;
+	authVersion: number;
 	employeeId?: Types.ObjectId;
 	createdBy: Types.ObjectId;
 	updatedBy: Types.ObjectId;
@@ -35,6 +36,11 @@ const userSchema = new mongoose.Schema<UserFields>(
 			type: mongoose.Schema.Types.ObjectId,
 			ref: "Employee",
 			default: undefined,
+		},
+		authVersion: {
+			type: Number,
+			default: 0,
+			required: true,
 		},
 		createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
 		updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },

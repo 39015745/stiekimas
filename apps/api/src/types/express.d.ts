@@ -9,6 +9,7 @@ declare global {
 				username: string;
 				role: "admin" | "employee";
 			};
+			authMethod?: "cookie" | "bearer";
 		}
 	}
 }

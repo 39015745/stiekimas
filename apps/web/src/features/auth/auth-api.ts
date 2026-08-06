@@ -3,7 +3,7 @@ import { queryOptions } from "@tanstack/react-query";
 import { ApiError, apiRequest } from "../../lib/api";
 
 export type AuthUser = {
-	AuthUser: string;
+	employeeId: string;
 	username: string;
 	role: "admin" | "employee";
 };
@@ -18,10 +18,13 @@ export type LoginInput = {
 };
 
 export async function login(input: LoginInput): Promise<AuthUser> {
-	const response = await apiRequest<AuthResponse>("/api/auth/login", {
+	const response = await apiRequest<AuthResponse>("/api/auth/web/login", {
 		method: "POST",
 		body: JSON.stringify(input),
 	});
+
+	console.log("login API response:", response);
+	console.log("login API user:", response.user);
 
 	return response.user;
 }

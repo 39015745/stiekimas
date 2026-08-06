@@ -23,6 +23,7 @@ export function LoginPage() {
 	const loginMutation = useMutation({
 		mutationFn: login,
 		onSuccess: (user) => {
+			console.log("mutation user:", user);
 			queryClient.setQueryData(authQueryOptions.queryKey, user);
 			const state = location.state as LocationState | null;
 			navigate(state?.from ?? "/dashboard", { replace: true });

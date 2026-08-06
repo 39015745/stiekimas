@@ -6,7 +6,18 @@ export const userRoleSchema = z.enum(USER_ROLES);
 
 export type UserRole = z.infer<typeof userRoleSchema>;
 
+function getUtf8ByteLength(value: string): number {
+	return new TextEncoder().encode(value).length;
+}
+
 export const usernameSchema = z.string().trim().toLowerCase().min(3, "Vartotojo vardas turi turėti bent 3 simbolius").max(50);
+export const passwordSchema = z
+	.string()
+	.min(8, "Slaptažodį turi sudaryti bent 8 simboliai")
+	.max(50, "Slaptažodis per ilgas")
+	.refine((password) => getUtf8ByteLength(password) <= 72, {
+		message: "Slaptažodis negali viršyti 72 baitų",
+	});
 
 export const employeeLoginSummarySchema = z
 	.object({
@@ -18,17 +29,15 @@ export const employeeLoginSummarySchema = z
 export const createEmployeeLoginSchema = z
 	.object({
 		username: usernameSchema,
-		password: z.string().min(8, "Slaptažodis turi turėti bent 8 simbolius").max(128),
+		password: passwordSchema,
 		role: userRoleSchema.default("employee"),
 	})
 	.strict();
 
-const optionalNewPasswordSchema = z.union([z.literal(""), z.string().min(8, "Naujas slaptažodis turi turėti bent 8 simbolius").max(128)]).transform((value) => (value === "" ? undefined : value));
-
 export const updateEmployeeLoginSchema = z
 	.object({
 		username: usernameSchema,
-		password: optionalNewPasswordSchema,
+		password: z.union([passwordSchema, z.literal("")]).optional(),
 		role: userRoleSchema,
 	})
 	.strict();
@@ -39,11 +48,9 @@ export const employeeLoginSchema = employeeLoginSummarySchema.extend({
 });
 
 export type CreateEmployeeLoginInput = z.input<typeof createEmployeeLoginSchema>;
-
 export type CreateEmployeeLoginOutput = z.output<typeof createEmployeeLoginSchema>;
 
 export type UpdateEmployeeLoginInput = z.input<typeof updateEmployeeLoginSchema>;
-
 export type UpdateEmployeeLoginOutput = z.output<typeof updateEmployeeLoginSchema>;
 
 export type EmployeeLogin = z.output<typeof employeeLoginSchema>;

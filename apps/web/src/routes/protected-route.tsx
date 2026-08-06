@@ -15,6 +15,8 @@ export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
 		return <FullPageLoader />;
 	}
 
+	console.log("zzz", authQuery.data);
+
 	if (!authQuery.data) {
 		return <Navigate to="/login" replace state={{ from: location.pathname }} />;
 	}

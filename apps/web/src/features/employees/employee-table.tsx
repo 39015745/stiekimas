@@ -1,14 +1,7 @@
 import { apiRequest } from "../../lib/api";
 import { DataTable, type PaginatedResponse, type TableColumn, type TableState } from "../../components/table/data-table";
 import { POSITION_LABELS } from "./employee.constants";
-
-export type EmployeeListItem = {
-	id: string;
-	firstName: string;
-	lastName: string;
-	email: string;
-	position: string;
-};
+import type { EmployeeListItem } from "@stiekimas/schema";
 
 const columns: readonly TableColumn<EmployeeListItem>[] = [
 	{

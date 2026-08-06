@@ -14,13 +14,21 @@ const adminSchema = z.object({
 		.min(3)
 		.max(50)
 		.transform((value) => value.toLowerCase()),
-	ADMIN_PASSWORD: z.string().min(8).max(50),
+
+	ADMIN_PASSWORD: z
+		.string()
+		.min(8)
+		.max(50)
+		.refine((password) => !bcrypt.truncates(password), {
+			message: "Password cannot exceed 72 UTF-8 bytes",
+		}),
 });
 
 const SYSTEM_USER_ID = new mongoose.Types.ObjectId("000000000000000000000000");
 
 async function seedAdmin(): Promise<void> {
 	const admin = adminSchema.parse(process.env);
+
 	await mongoose.connect(env.MONGODB_URI);
 
 	const passwordHash = await bcrypt.hash(admin.ADMIN_PASSWORD, 12);
@@ -36,6 +44,9 @@ async function seedAdmin(): Promise<void> {
 			$setOnInsert: {
 				createdBy: SYSTEM_USER_ID,
 			},
+			$inc: {
+				authVersion: 1,
+			},
 		},
 		{
 			upsert: true,
@@ -45,6 +56,7 @@ async function seedAdmin(): Promise<void> {
 	);
 
 	console.log(`Admin user '${admin.ADMIN_NAME}' is ready`);
+
 	await mongoose.disconnect();
 }
 
