@@ -21,9 +21,7 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
 		headers.set("Content-Type", "application/json");
 	}
 
-	if (API_URL.includes("ngrok-free.app")) {
-		headers.set("ngrok-skip-browser-warning", "true");
-	}
+	headers.set("ngrok-skip-browser-warning", "true");
 
 	const response = await fetch(`${API_URL}${path}`, {
 		...options,
