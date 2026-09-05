@@ -6,15 +6,17 @@ import { Breadcrumbs } from "../components/ui/breadcrumbs";
 
 import type { EmployeeDetails } from "@stiekimas/schema";
 
-import { apiRequest } from "../lib/api";
-import { Spinner } from "../components/ui/loading-animations";
+import { FullPageLoader } from "../components/ui/loading-animations";
 import { EmployeeDataTab } from "../features/employees/tabs/employee-data-tab";
 import { EmployeeDocumentsTab } from "../features/employees/tabs/employee-documents-tab";
+import { employeeKeys, getEmployee } from "../features/employees/employee-api";
+import { getRequiredParam } from "../lib/router";
 
 type TabType = "data" | "documents";
 
 export default function EmployeeDetails() {
-	const { id } = useParams<{ id: string }>();
+	const params = useParams<{ id: string }>();
+	const id = getRequiredParam(params.id, "id");
 
 	const [activeTab, setActiveTab] = useState<TabType>("data");
 
@@ -23,15 +25,14 @@ export default function EmployeeDetails() {
 		isPending,
 		isError,
 	} = useQuery({
-		queryKey: ["employees", id],
-		queryFn: ({ signal }) => apiRequest<EmployeeDetails>(`/api/employees/${id}`, { signal }),
-		enabled: Boolean(id),
+		queryKey: employeeKeys.detail(id),
+		queryFn: ({ signal }) => getEmployee(id, signal),
 	});
 
 	if (isPending)
 		return (
 			<div className="flex justify-center mt-32">
-				<Spinner />
+				<FullPageLoader />
 			</div>
 		);
 	if (isError || !employee) return <div>Nepavyko užkrauti darbuotojo duomenų.</div>;

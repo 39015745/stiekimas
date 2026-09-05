@@ -1,4 +1,4 @@
-export const Spinner = ({ size = 200, color = "#f45b1e" }: { size?: number | string; color?: string }) => {
+export const FullPageLoader = ({ size = 200, color = "#f45b1e" }: { size?: number | string; color?: string }) => {
 	return (
 		<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width={size} height={size} style={{ display: "block", shapeRendering: "auto" }}>
 			{Array.from({ length: 8 }).map((_, i) => {
@@ -19,3 +19,11 @@ export const Spinner = ({ size = 200, color = "#f45b1e" }: { size?: number | str
 		</svg>
 	);
 };
+
+export function Spinner() {
+	return (
+		<div className="grid min-h-screen place-items-center bg-slate-100">
+			<div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-300 border-t-primary-400" />
+		</div>
+	);
+}

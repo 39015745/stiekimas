@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-import { employeeLoginSummarySchema } from "./employee-login.js";
+import type { PaginatedResponse } from "./pagination.ts";
+import { employeeLoginSchema } from "./employee-login.js";
 
 export const EMPLOYEE_POSITIONS = ["Montuotojas", "Suvirintojas"] as const;
 
@@ -35,7 +36,7 @@ export const employeeFormSchema = z
 export const employeeSchema = employeeFormSchema.extend({
 	position: employeePositionSchema,
 	id: z.string().min(1),
-	login: employeeLoginSummarySchema.nullable(),
+	login: employeeLoginSchema.nullable(),
 	createdAt: z.iso.datetime(),
 	updatedAt: z.iso.datetime(),
 });
@@ -50,13 +51,7 @@ export type EmployeeDetails = z.output<typeof employeeSchema>;
 
 export type EmployeeListItem = Pick<EmployeeDetails, "id" | "firstName" | "lastName" | "email" | "position">;
 
-export type EmployeeListResponse = {
-	items: EmployeeListItem[];
-	totalCount: number;
-	page: number;
-	pageSize: number;
-	pageCount: number;
-};
+export type EmployeeListResponse = PaginatedResponse<EmployeeListItem>;
 
 export const EMPLOYEE_LIST_COLUMNS = ["firstName", "lastName", "email", "position"] as const;
 
@@ -83,7 +78,6 @@ const employeeFiltersQuerySchema = z.preprocess((value) => {
 	try {
 		return JSON.parse(value) as unknown;
 	} catch {
-		// Let the array schema produce a validation error.
 		return value;
 	}
 }, z.array(employeeListFilterSchema).max(EMPLOYEE_LIST_COLUMNS.length));

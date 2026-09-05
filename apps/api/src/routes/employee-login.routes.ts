@@ -7,6 +7,7 @@ import { createEmployeeLoginSchema, updateEmployeeLoginSchema } from "@stiekimas
 import { Employee } from "../models/employee.model.js";
 import { User } from "../models/user.model.js";
 import { requireAdmin } from "../middleware/require-admin.js";
+import { validateObjectId } from "../middleware/require-employee-access.js";
 
 export const employeeLoginRouter = Router();
 
@@ -19,19 +20,13 @@ function isDuplicateKeyError(error: unknown): error is DuplicateKeyError {
 	return typeof error === "object" && error !== null && "code" in error && (error as { code?: unknown }).code === 11000;
 }
 
-function isValidEmployeeId(employeeId: unknown): employeeId is string {
-	return typeof employeeId === "string" && mongoose.Types.ObjectId.isValid(employeeId);
-}
+type EmployeeIdParams = {
+	id: string;
+};
 
 // POST /api/employees/:employeeId/login | create employee login
-employeeLoginRouter.post("/:employeeId/login", requireAdmin, async (req, res) => {
-	const { employeeId } = req.params;
-
-	if (!isValidEmployeeId(employeeId)) {
-		return res.status(400).json({
-			message: "Neteisingas ID formatas",
-		});
-	}
+employeeLoginRouter.post<EmployeeIdParams>("/:id/login", requireAdmin, validateObjectId, async (req, res) => {
+	const employeeId = req.params.id;
 
 	const validationResult = await createEmployeeLoginSchema.safeParseAsync(req.body);
 
@@ -45,25 +40,19 @@ employeeLoginRouter.post("/:employeeId/login", requireAdmin, async (req, res) =>
 		});
 	}
 
+	const employeeObjectId = new mongoose.Types.ObjectId(employeeId);
+
 	try {
-		const employeeExists = await Employee.exists({
-			_id: employeeId,
-		});
+		const employeeExists = await Employee.exists({ _id: employeeObjectId });
 
 		if (!employeeExists) {
-			return res.status(404).json({
-				message: "Darbuotojas nerastas",
-			});
+			return res.status(404).json({ message: "Darbuotojas nerastas" });
 		}
 
-		const existingLogin = await User.exists({
-			employeeId,
-		});
+		const existingLogin = await User.exists({ employeeId: employeeObjectId });
 
 		if (existingLogin) {
-			return res.status(409).json({
-				message: "Darbuotojas jau turi prisijungimą",
-			});
+			return res.status(409).json({ message: "Darbuotojas jau turi prisijungimą" });
 		}
 
 		const { username, password, role } = validationResult.data;
@@ -74,14 +63,12 @@ employeeLoginRouter.post("/:employeeId/login", requireAdmin, async (req, res) =>
 			username,
 			passwordHash,
 			role,
-			employeeId,
-			createdBy: req.user.id,
-			updatedBy: req.user.id,
+			employeeId: employeeObjectId,
+			createdBy: new mongoose.Types.ObjectId(req.user.id),
+			updatedBy: new mongoose.Types.ObjectId(req.user.id),
 		});
 
-		return res.status(201).json({
-			id: user._id.toString(),
-		});
+		return res.status(201).json({ message: "Darbuotojo prisijungimas sėkmingai sukurtas" });
 	} catch (error) {
 		if (isDuplicateKeyError(error)) {
 			return res.status(409).json({
@@ -92,21 +79,13 @@ employeeLoginRouter.post("/:employeeId/login", requireAdmin, async (req, res) =>
 
 		console.error("Failed to create employee login:", error);
 
-		return res.status(500).json({
-			message: "Vidinė serverio klaida",
-		});
+		return res.status(500).json({ message: "Vidinė serverio klaida" });
 	}
 });
 
 // PUT /api/employees/:employeeId/login | update employee login
-employeeLoginRouter.put("/:employeeId/login", requireAdmin, async (req, res) => {
-	const { employeeId } = req.params;
-
-	if (!isValidEmployeeId(employeeId)) {
-		return res.status(400).json({
-			message: "Neteisingas ID formatas",
-		});
-	}
+employeeLoginRouter.put<EmployeeIdParams>("/:employeeId/login", requireAdmin, validateObjectId, async (req, res) => {
+	const employeeId = req.params.id;
 
 	const validationResult = await updateEmployeeLoginSchema.safeParseAsync(req.body);
 
@@ -120,6 +99,8 @@ employeeLoginRouter.put("/:employeeId/login", requireAdmin, async (req, res) => 
 		});
 	}
 
+	const employeeObjectId = new mongoose.Types.ObjectId(employeeId);
+
 	try {
 		const { username, password, role } = validationResult.data;
 
@@ -127,7 +108,7 @@ employeeLoginRouter.put("/:employeeId/login", requireAdmin, async (req, res) => 
 			$set: {
 				username: string;
 				role: typeof role;
-				updatedBy: string;
+				updatedBy: mongoose.Types.ObjectId;
 				passwordHash?: string;
 			};
 			$inc?: {
@@ -137,29 +118,28 @@ employeeLoginRouter.put("/:employeeId/login", requireAdmin, async (req, res) => 
 			$set: {
 				username,
 				role,
-				updatedBy: req.user.id,
+				updatedBy: new mongoose.Types.ObjectId(req.user.id),
 			},
 		};
 
 		if (password) {
 			update.$set.passwordHash = await bcrypt.hash(password, 12);
+
 			update.$inc = {
 				authVersion: 1,
 			};
 		}
 
-		const user = await User.findOneAndUpdate({ employeeId }, update, {
+		const user = await User.findOneAndUpdate({ employeeId: employeeObjectId }, update, {
 			new: true,
 			runValidators: true,
 		});
 
 		if (!user) {
-			return res.status(404).json({
-				message: "Darbuotojas neturi prisijungimo",
-			});
+			return res.status(404).json({ message: "Darbuotojas neturi prisijungimo" });
 		}
 
-		return res.sendStatus(200);
+		return res.status(200).json({ message: "Darbuotojo prisijungimas sėkmingai atnaujintas" });
 	} catch (error) {
 		if (isDuplicateKeyError(error)) {
 			return res.status(409).json({
@@ -170,39 +150,27 @@ employeeLoginRouter.put("/:employeeId/login", requireAdmin, async (req, res) => 
 
 		console.error("Failed to update employee login:", error);
 
-		return res.status(500).json({
-			message: "Vidinė serverio klaida",
-		});
+		return res.status(500).json({ message: "Vidinė serverio klaida" });
 	}
 });
 
-// DELETE /api/employees/:employeeId/login | delete employee login
-employeeLoginRouter.delete("/:employeeId/login", requireAdmin, async (req, res) => {
-	const { employeeId } = req.params;
+// DELETE /api/employees/:employeeId/login
+employeeLoginRouter.delete<EmployeeIdParams>("/:employeeId/login", requireAdmin, validateObjectId, async (req, res) => {
+	const employeeId = req.params.id;
 
-	if (!isValidEmployeeId(employeeId)) {
-		return res.status(400).json({
-			message: "Neteisingas ID formatas",
-		});
-	}
+	const employeeObjectId = new mongoose.Types.ObjectId(employeeId);
 
 	try {
-		const deletedUser = await User.findOneAndDelete({
-			employeeId,
-		});
+		const deletedUser = await User.findOneAndDelete({ employeeId: employeeObjectId });
 
 		if (!deletedUser) {
-			return res.status(404).json({
-				message: "Darbuotojas neturi prisijungimo",
-			});
+			return res.status(404).json({ message: "Darbuotojas neturi prisijungimo" });
 		}
 
-		return res.sendStatus(204);
+		return res.status(200).json({ message: "Darbuotojas sėkmingai ištrintas" });
 	} catch (error) {
 		console.error("Failed to delete employee login:", error);
 
-		return res.status(500).json({
-			message: "Vidinė serverio klaida",
-		});
+		return res.status(500).json({ message: "Vidinė serverio klaida" });
 	}
 });

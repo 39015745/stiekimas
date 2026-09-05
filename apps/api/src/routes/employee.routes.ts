@@ -9,6 +9,8 @@ import { requireAdmin } from "../middleware/require-admin.js";
 import { employeeFormSchema, employeeListQuerySchema } from "@stiekimas/schema";
 import { User } from "../models/user.model.js";
 import { isMongoDuplicateKeyError } from "../lib/mongoose-errors.js";
+import { validateObjectId } from "../middleware/require-employee-access.js";
+import { requireEmployeeAccess } from "../middleware/validate-object-id.js";
 
 export const employeeRouter = Router();
 
@@ -106,22 +108,9 @@ employeeRouter.get("/", requireAdmin, async (req: Request, res: Response<Employe
 });
 
 // GET /api/employees/:id | Get employee details |
-employeeRouter.get("/:id", async (req: Request, res: Response<EmployeeDetails | ErrorResponse>) => {
+employeeRouter.get("/:id", validateObjectId, requireEmployeeAccess, async (req: Request, res: Response<EmployeeDetails | ErrorResponse>) => {
 	try {
 		const requestedId = req.params.id;
-		const currentUser = req.user;
-
-		if (typeof requestedId !== "string" || !mongoose.Types.ObjectId.isValid(requestedId)) {
-			return res.status(400).json({
-				message: "Neteisingas ID formatas",
-			});
-		}
-
-		if (currentUser.role !== "admin" && currentUser.employeeId !== requestedId) {
-			return res.status(403).json({
-				message: "Prieiga draudžiama",
-			});
-		}
 
 		const [employee, user] = await Promise.all([
 			Employee.findById(requestedId).select("+personalCode +bankAccountNumber +basicSalary").lean(),
@@ -183,9 +172,7 @@ employeeRouter.post("/", requireAdmin, async (req: Request, res: Response) => {
 			updatedBy: currentUserId,
 		});
 
-		return res.status(201).json({
-			id: employee._id.toString(),
-		});
+		return res.status(201).json({ message: "Darbuotojas sėkmingai sukurtas" });
 	} catch (error) {
 		if (isMongoDuplicateKeyError(error)) {
 			const field = Object.keys(error.keyPattern ?? {})[0];
@@ -204,21 +191,9 @@ employeeRouter.post("/", requireAdmin, async (req: Request, res: Response) => {
 });
 
 // PUT /api/employees/:id | Update employee details |
-employeeRouter.put("/:id", async (req: Request, res: Response) => {
+employeeRouter.put("/:id", validateObjectId, requireEmployeeAccess, async (req: Request, res: Response) => {
 	const requestedId = req.params.id;
 	const currentUser = req.user;
-
-	if (typeof requestedId !== "string" || !mongoose.Types.ObjectId.isValid(requestedId)) {
-		return res.status(400).json({
-			message: "Neteisingas ID formatas",
-		});
-	}
-
-	if (currentUser.role !== "admin" && currentUser.employeeId !== requestedId) {
-		return res.status(403).json({
-			message: "Prieiga draudžiama",
-		});
-	}
 
 	const validationResult = await employeeFormSchema.safeParseAsync(req.body);
 
@@ -259,7 +234,7 @@ employeeRouter.put("/:id", async (req: Request, res: Response) => {
 			});
 		}
 
-		return res.sendStatus(200);
+		return res.status(200).json({ message: "Darbuotojas sėkmingai atnaujintas" });
 	} catch (error) {
 		if (isMongoDuplicateKeyError(error)) {
 			const field = Object.keys(error.keyPattern ?? {})[0];
@@ -278,6 +253,42 @@ employeeRouter.put("/:id", async (req: Request, res: Response) => {
 });
 
 // DELETE /api/employees/:id
-employeeRouter.delete("/:id", requireAdmin, async (req, res) => {
-	res.json({ message: `Delete employee ${req.params.id}` });
+employeeRouter.delete("/:id", requireAdmin, validateObjectId, async (req: Request, res: Response) => {
+	const requestedId = req.params.id;
+
+	const session = await mongoose.startSession();
+
+	try {
+		let employeeFound = false;
+
+		await session.withTransaction(async () => {
+			const employee = await Employee.findByIdAndDelete(requestedId, {
+				session,
+			});
+
+			if (!employee) {
+				return;
+			}
+
+			employeeFound = true;
+
+			await User.deleteOne({ employeeId: requestedId }, { session });
+		});
+
+		if (!employeeFound) {
+			return res.status(404).json({
+				message: "Darbuotojas nerastas",
+			});
+		}
+
+		return res.sendStatus(200).json({ message: "Darbuotojas sėkmingai ištrintas" });
+	} catch (error) {
+		console.error("Failed to delete employee:", error);
+
+		return res.status(500).json({
+			message: "Nepavyko ištrinti darbuotojo",
+		});
+	} finally {
+		await session.endSession();
+	}
 });

@@ -1,3 +1,4 @@
+import type { PaginatedResponse } from "@stiekimas/schema";
 import { keepPreviousData, useQuery, type QueryKey } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { useState, type FormEvent, type ReactNode } from "react";
@@ -17,14 +18,6 @@ export type TableState = {
 	sortBy: string;
 	sortOrder: SortOrder;
 	filters: TableFilter[];
-};
-
-export type PaginatedResponse<T> = {
-	items: T[];
-	totalCount: number;
-	page: number;
-	pageSize: number;
-	pageCount: number;
 };
 
 export type TableColumn<T> = {

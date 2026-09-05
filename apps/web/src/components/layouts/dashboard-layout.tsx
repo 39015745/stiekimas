@@ -1,20 +1,27 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Menu, Users, Briefcase, CalendarClock, X } from "lucide-react";
+import { LayoutDashboard, Menu, Users, Briefcase, CalendarClock, X, Timer, User } from "lucide-react";
 
 import stiekimasLogo from "../../assets/stiekimas-logo.webp";
 import { authQueryOptions, logout } from "../../features/auth/auth-api";
 
-const navigation = [
+const AdminNavigation = [
 	{ label: "Apžvalga", to: "/", end: true, icon: LayoutDashboard },
 	{ label: "Darbuotojai", to: "/employees", icon: Users },
 	{ label: "Projektai", to: "/projects", icon: Briefcase },
 	{ label: "Bendras tabelis", to: "/work-sessions", icon: CalendarClock },
 ];
 
+const getEmployeeNavigation = (employeeId: string) => [
+	{ label: "Darbo fiksavimas", to: "/", end: true, icon: Timer },
+	{ label: "Mano profilis", to: `/employees/${employeeId}`, icon: User },
+	{ label: "Bendras tabelis", to: "/work-sessions", icon: CalendarClock },
+];
+
 export function DashboardLayout() {
 	const [sidebarOpen, setSidebarOpen] = useState(false);
+
 	const authQuery = useQuery(authQueryOptions);
 	const queryClient = useQueryClient();
 	const navigate = useNavigate();
@@ -27,9 +34,9 @@ export function DashboardLayout() {
 			navigate("/login", { replace: true });
 		},
 	});
-	console.log("1111", authQuery.data);
 
-	const role = authQuery.data?.role === "admin" ? "administratorius" : "darbuotojas";
+	const isAdmin = authQuery.data?.role === "admin";
+	const navigation = isAdmin ? AdminNavigation : getEmployeeNavigation(authQuery.data!.employeeId);
 
 	return (
 		<div className="min-h-screen bg-background">
@@ -70,7 +77,7 @@ export function DashboardLayout() {
 				</nav>
 
 				<div className="border-t border-primary-400 p-4">
-					<p className="text-sm mb-3 text-primary-700 text-center min-w-0 px-2">Prisijungęs kaip {role}</p>
+					<p className="text-sm mb-3 text-primary-700 text-center min-w-0 px-2">Prisijungęs kaip {isAdmin ? "administratorius" : "darbuotojas"}</p>
 					<button
 						className="w-full rounded-lg border border-primary-400 bg-primary-200 px-3 py-2 font-medium text-white hover:bg-primary-400 disabled:opacity-60 cursor-pointer"
 						disabled={logoutMutation.isPending}

@@ -8,6 +8,7 @@ import { ProtectedRoute } from "./routes/protected-route";
 import { DashboardLayout } from "./components/layouts/dashboard-layout";
 import Employees from "./pages/employees";
 import EmployeeDetails from "./pages/employee";
+import WorkSessionsPage from "./pages/WorkSessionsPage";
 
 export const router = createBrowserRouter([
 	{
@@ -23,7 +24,7 @@ export const router = createBrowserRouter([
 				element: <DashboardLayout />,
 				children: [
 					{ index: true, element: <DashboardHomePage /> },
-					{ path: "work-sessions", element: <PlaceholderPage title="Work sessions" /> },
+					{ path: "work-sessions", element: <WorkSessionsPage /> },
 					{ path: "employees/:id", element: <EmployeeDetails /> },
 
 					{

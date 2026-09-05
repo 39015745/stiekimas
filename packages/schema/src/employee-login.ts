@@ -11,6 +11,7 @@ function getUtf8ByteLength(value: string): number {
 }
 
 export const usernameSchema = z.string().trim().toLowerCase().min(3, "Vartotojo vardas turi turėti bent 3 simbolius").max(50);
+
 export const passwordSchema = z
 	.string()
 	.min(8, "Slaptažodį turi sudaryti bent 8 simboliai")
@@ -19,38 +20,32 @@ export const passwordSchema = z
 		message: "Slaptažodis negali viršyti 72 baitų",
 	});
 
-export const employeeLoginSummarySchema = z
+const employeeLoginBaseSchema = z.object({
+	username: usernameSchema,
+	role: userRoleSchema,
+});
+
+export const employeeLoginSchema = z
 	.object({
 		username: z.string(),
 		role: userRoleSchema,
 	})
 	.strict();
 
-export const createEmployeeLoginSchema = z
-	.object({
-		username: usernameSchema,
+export const createEmployeeLoginSchema = employeeLoginBaseSchema
+	.extend({
 		password: passwordSchema,
-		role: userRoleSchema.default("employee"),
 	})
 	.strict();
 
-export const updateEmployeeLoginSchema = z
-	.object({
-		username: usernameSchema,
-		password: z.union([passwordSchema, z.literal("")]).optional(),
-		role: userRoleSchema,
+export const updateEmployeeLoginSchema = employeeLoginBaseSchema
+	.extend({
+		password: z.union([passwordSchema, z.literal("")]),
 	})
 	.strict();
 
-export const employeeLoginSchema = employeeLoginSummarySchema.extend({
-	id: z.string().min(1),
-	employeeId: z.string().min(1),
-});
+export type EmployeeLoginFormInput = z.input<typeof updateEmployeeLoginSchema>;
 
-export type CreateEmployeeLoginInput = z.input<typeof createEmployeeLoginSchema>;
-export type CreateEmployeeLoginOutput = z.output<typeof createEmployeeLoginSchema>;
+export type EmployeeLoginFormOutput = z.output<typeof updateEmployeeLoginSchema>;
 
-export type UpdateEmployeeLoginInput = z.input<typeof updateEmployeeLoginSchema>;
-export type UpdateEmployeeLoginOutput = z.output<typeof updateEmployeeLoginSchema>;
-
-export type EmployeeLogin = z.output<typeof employeeLoginSchema>;
+export type EmployeeLoginDetails = z.output<typeof employeeLoginSchema>;

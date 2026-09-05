@@ -31,17 +31,18 @@ const employeeSchema = new mongoose.Schema(
 		},
 		personalCode: {
 			type: String,
-			required: true,
-			unique: true,
+			trim: true,
+			default: "",
 			select: false,
 		},
 		dateOfBirth: {
 			type: String,
-			required: true,
+			default: "",
 		},
 		bankAccountNumber: {
 			type: String,
-			required: true,
+			trim: true,
+			default: "",
 			select: false,
 		},
 		basicSalary: {

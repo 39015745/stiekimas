@@ -2,17 +2,19 @@ import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import type { SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { employeeFormSchema, type EmployeeDetails, type EmployeeFormInput, type EmployeeFormOutput } from "@stiekimas/schema";
 
 import { Input } from "../../components/inputs/input";
 import { Select } from "../../components/inputs/select";
 import { DatePicker } from "../../components/inputs/date-picker";
+import { authQueryOptions } from "../../features/auth/auth-api";
 import { CollapsibleFieldset } from "../../components/layouts/collapsible-fieldset";
 import { ActionOverlay, type ActionOverlayState } from "../../components/layouts/action-overlay";
-import { apiRequest, getErrorMessage } from "../../lib/api";
+import { getErrorMessage } from "../../lib/api";
 import { POSITION_OPTIONS } from "./employee.constants";
+import { createEmployee, updateEmployee } from "./employee-api";
 
 type EmployeeFormProps = {
 	onClose: () => void;
@@ -62,35 +64,27 @@ export function EmployeeForm({ onClose, initialData }: EmployeeFormProps) {
 		mode: "onTouched",
 	});
 
-	const queryClient = useQueryClient();
-
 	const [overlayState, setOverlayState] = useState<ActionOverlayState>({ type: "closed" });
 
+	const authQuery = useQuery(authQueryOptions);
+	const queryClient = useQueryClient();
+
+	const isAdmin = authQuery.data?.role === "admin";
+
 	const saveEmployeeMutation = useMutation({
-		mutationFn: async (data: EmployeeFormOutput) => {
-			if (initialData) {
-				return apiRequest(`/api/employees/${initialData.id}`, {
-					method: "PUT",
-					body: JSON.stringify(data),
-				});
-			}
-			return apiRequest("/api/employees", {
-				method: "POST",
-				body: JSON.stringify(data),
-			});
-		},
-		onSuccess: () => {
+		mutationFn: (data: EmployeeFormOutput) => (initialData ? updateEmployee(initialData.id, data) : createEmployee(data)),
+
+		onSuccess: (response) => {
 			queryClient.invalidateQueries({ queryKey: ["employees"] });
 
 			setOverlayState({
 				type: "response",
 				status: "success",
-				title: initialData ? "Darbuotojas atnaujintas" : "Darbuotojas sukurtas",
-				message: initialData ? "Darbuotojo informacija sėkmingai atnaujinta." : "Naujas darbuotojas sėkmingai sukurtas.",
+				title: "Atlikta",
+				message: response.message,
 			});
 		},
 		onError: (error) => {
-			console.error("Failed to save employee", error);
 			setOverlayState({
 				type: "response",
 				status: "error",
@@ -119,12 +113,8 @@ export function EmployeeForm({ onClose, initialData }: EmployeeFormProps) {
 		const wasSuccessful = overlayState.type === "response" && overlayState.status === "success";
 		setOverlayState({ type: "closed" });
 
-		if (wasSuccessful) {
-			onClose();
-		}
+		if (wasSuccessful) onClose();
 	};
-
-	const isPending = saveEmployeeMutation.isPending;
 
 	return (
 		<>
@@ -155,43 +145,17 @@ export function EmployeeForm({ onClose, initialData }: EmployeeFormProps) {
 				{/* Employment & Financial Section */}
 				<CollapsibleFieldset title="Darbo ir finansų informacija">
 					<div className="grid grid-cols-1 gap-4 md:grid-cols-2 p-4">
-						<Select label="Pareigos" options={POSITION_OPTIONS} {...register("position")} error={errors.position?.message} />
-						<Input label="Bazinė alga" type="number" step="0.01" {...register("basicSalary", { valueAsNumber: true })} error={errors.basicSalary?.message} />
+						{isAdmin && <Select label="Pareigos" options={POSITION_OPTIONS} {...register("position")} error={errors.position?.message} />}
+						{isAdmin && <Input label="Bazinė alga" type="number" step="0.01" {...register("basicSalary", { valueAsNumber: true })} error={errors.basicSalary?.message} />}
 						<Input label="Banko sąskaitos numeris" {...register("bankAccountNumber")} error={errors.bankAccountNumber?.message} />
 					</div>
 				</CollapsibleFieldset>
-
-				{/* Login information Section */}
-				{/* <CollapsibleFieldset title="Prisijungimo informacija">
-					<div className="space-y-4 p-4">
-						<div className="flex items-center gap-2">
-							<input id="manageLogin" type="checkbox" {...register("manageLogin")} className="h-4 w-4" />
-							<label htmlFor="manageLogin">{hasExistingLogin ? "Redaguoti prisijungimo duomenis" : "Sukurti prisijungimą sistemai"}</label>
-						</div>
-
-						{manageLogin && (
-							<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-								<Input label="Vartotojo vardas" {...register("username")} error={errors.username?.message} />
-								<Input
-									label={hasExistingLogin ? "Naujas slaptažodis" : "Slaptažodis"}
-									type="password"
-									autoComplete="new-password"
-									{...register("password")}
-									error={errors.password?.message}
-								/>
-								<Select label="Vartotojo rolė" options={ROLE_OPTIONS} {...register("role")} error={errors.role?.message} />
-
-								{hasExistingLogin && <p className="text-sm text-muted-foreground md:col-span-2">Palikite slaptažodį tuščią, jeigu jo keisti nereikia.</p>}
-							</div>
-						)}
-					</div>
-				</CollapsibleFieldset> */}
 
 				<div className="mt-6 flex justify-end gap-3">
 					<button
 						type="button"
 						onClick={handleCancel}
-						disabled={isPending}
+						disabled={saveEmployeeMutation.isPending}
 						className="rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						Atšaukti
@@ -199,7 +163,7 @@ export function EmployeeForm({ onClose, initialData }: EmployeeFormProps) {
 
 					<button
 						type="submit"
-						disabled={isPending}
+						disabled={saveEmployeeMutation.isPending}
 						className="rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						Išsaugoti

@@ -1,7 +1,7 @@
-import { apiRequest } from "../../lib/api";
-import { DataTable, type PaginatedResponse, type TableColumn, type TableState } from "../../components/table/data-table";
+import { DataTable, type TableColumn } from "../../components/table/data-table";
 import { POSITION_LABELS } from "./employee.constants";
 import type { EmployeeListItem } from "@stiekimas/schema";
+import { getEmployees, employeeKeys } from "./employee-api";
 
 const columns: readonly TableColumn<EmployeeListItem>[] = [
 	{
@@ -30,23 +30,6 @@ const columns: readonly TableColumn<EmployeeListItem>[] = [
 	},
 ];
 
-async function loadEmployees(state: TableState, signal: AbortSignal): Promise<PaginatedResponse<EmployeeListItem>> {
-	const params = new URLSearchParams({
-		page: String(state.page),
-		pageSize: String(state.pageSize),
-		sortBy: state.sortBy,
-		sortOrder: state.sortOrder,
-		filters: JSON.stringify(
-			state.filters.map(({ column, value }) => ({
-				column,
-				value,
-			})),
-		),
-	});
-
-	return apiRequest<PaginatedResponse<EmployeeListItem>>(`/api/employees?${params.toString()}`, { signal });
-}
-
 export function EmployeeTable() {
 	return (
 		<DataTable<EmployeeListItem>
@@ -58,8 +41,8 @@ export function EmployeeTable() {
 				{ value: "position", label: "Pareigos" },
 			]}
 			getRowId={(employee) => employee.id}
-			queryKey={(state) => ["employees", state]}
-			loadData={loadEmployees}
+			queryKey={(state) => employeeKeys.list(state)}
+			loadData={getEmployees}
 			initialSortBy="lastName"
 			emptyMessage="Darbuotojų nerasta."
 		/>
