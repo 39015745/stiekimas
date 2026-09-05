@@ -33,6 +33,8 @@ function escapeRegExp(value: string): string {
 employeeRouter.get("/", requireAdmin, async (req: Request, res: Response<EmployeeListResponse | ErrorResponse>) => {
 	const validationResult = employeeListQuerySchema.safeParse(req.query);
 
+	console.log("zzzzzzzzzzzz");
+
 	if (!validationResult.success) {
 		return res.status(400).json({
 			message: "Neteisingi lentelės parametrai",
